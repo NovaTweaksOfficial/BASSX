@@ -26,6 +26,7 @@ export const SERVICES: ServiceDefinition[] = [
     requirements: [
       'A Spotify account with Premium for in-app playback',
       'A Spotify developer app with this exact Redirect URI added',
+      'Your Spotify account added under Users and Access (Development Mode)',
       'The app owner must have Premium while the app is in Development Mode',
     ],
     capabilities: {

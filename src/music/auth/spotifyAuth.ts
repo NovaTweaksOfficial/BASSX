@@ -110,15 +110,17 @@ export function readSpotifyCallback(): {
   code: string | null
   state: string | null
   error: string | null
+  errorDescription: string | null
 } {
   if (typeof window === 'undefined') {
-    return { code: null, state: null, error: null }
+    return { code: null, state: null, error: null, errorDescription: null }
   }
   const params = new URLSearchParams(window.location.search)
   return {
     code: params.get('code'),
     state: params.get('state'),
     error: params.get('error'),
+    errorDescription: params.get('error_description'),
   }
 }
 
@@ -164,10 +166,23 @@ export async function completeSpotifyAuth(
   if (callback.error) {
     clearPending()
     clearSpotifyCallbackUrl()
+    const description = (callback.errorDescription ?? '').toLowerCase()
+    if (description.includes('not registered')) {
+      throw new MusicAuthError(
+        'provider',
+        'Your Spotify account is not registered as a test user for this Development Mode app. Add it under Users and Access in the Spotify dashboard, then try again.',
+      )
+    }
+    if (callback.error === 'access_denied') {
+      throw new MusicAuthError(
+        'cancelled',
+        callback.errorDescription || 'Spotify authorization was cancelled.',
+      )
+    }
     throw new MusicAuthError(
-      callback.error === 'access_denied' ? 'cancelled' : 'provider',
-      callback.error === 'access_denied'
-        ? 'Spotify authorization was cancelled.'
+      'provider',
+      callback.errorDescription
+        ? `Spotify returned an error: ${callback.errorDescription}`
         : `Spotify returned an error: ${callback.error}`,
     )
   }

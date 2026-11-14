@@ -106,7 +106,8 @@ BASSX uses the Authorization Code flow with PKCE, so **no client secret exists i
 
 1. Create an app in the Spotify dashboard.
 2. Add the exact **Redirect URI** shown in BASSX. On the hosted app it is `https://<owner>.github.io/BASSX/music`; locally it is `http://localhost:5173/music` (or whichever dev port you use).
-3. Paste the app’s **Client ID** into BASSX and press **Connect**.
+3. Under **Users and Access**, add every Spotify account that will connect while the app is in Development Mode.
+4. Paste the app’s **Client ID** into BASSX and press **Connect**.
 4. Approve the requested scopes on Spotify’s own page. BASSX never sees your password.
 
 What works:

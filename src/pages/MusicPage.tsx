@@ -715,6 +715,12 @@ function ServiceModal({
         setFormError('Enter your Spotify app Client ID.')
         return
       }
+      if (!/^[0-9a-f]{32}$/i.test(id)) {
+        setFormError(
+          'That does not look like a Spotify Client ID. Copy the 32-character value from your app dashboard (no spaces).',
+        )
+        return
+      }
       music.updateConfig({ spotifyClientId: id, rememberSpotify: remember })
       await music.connectSpotify(id)
       return
@@ -849,6 +855,10 @@ function ServiceModal({
               <li>Create an app in the Spotify developer dashboard.</li>
               <li>Add the redirect URI below to that app exactly.</li>
               <li>Copy the app’s Client ID here. It is public — never a secret.</li>
+              <li>
+                In Development Mode, add your Spotify account under
+                <strong> Users and Access</strong> before connecting.
+              </li>
             </ol>
             <label className="field">
               <span>Client ID</span>
