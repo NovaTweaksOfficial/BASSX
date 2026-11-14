@@ -13,11 +13,13 @@ export function TopBar() {
 
   const label = !supported
     ? 'Audio unsupported'
-    : isPlaying
-      ? 'Processing live'
-      : status === 'running'
-        ? 'Engine ready'
+    : status !== 'running'
+      ? isPlaying
+        ? 'Resume audio'
         : 'Tap to arm'
+      : isPlaying
+        ? 'Processing live'
+        : 'Engine ready'
   const tone = !supported
     ? 'is-error'
     : status === 'running'
@@ -34,7 +36,12 @@ export function TopBar() {
       return
     }
     const ok = await activate()
-    toast(ok ? 'Audio engine armed — press play' : 'Tap once more to arm audio', ok ? 'success' : 'warn')
+    toast(
+      ok
+        ? 'Audio engine armed — press play'
+        : 'Audio is still locked. Tap play or the pill once more.',
+      ok ? 'success' : 'warn',
+    )
   }
 
   return (

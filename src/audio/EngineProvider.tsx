@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -24,42 +23,46 @@ const EngineContext = createContext<EngineContextValue | null>(null)
 export function EngineProvider({ children }: { children: ReactNode }) {
   const engine = useMemo(() => getEngine(), [])
   const [status, setStatus] = useState<EngineStatus>(() => engine.state as EngineStatus)
-  const activating = useRef<Promise<boolean> | null>(null)
 
   const sync = useCallback(() => {
     setStatus(engine.state as EngineStatus)
   }, [engine])
 
+  /**
+   * Never dedupe across gestures: if a previous resume() attempt was rejected
+   * or left pending by iOS, the next tap must be allowed to create/resume the
+   * context again. armSync() runs synchronously inside the gesture.
+   */
   const activate = useCallback(async () => {
-    if (activating.current) return activating.current
-    activating.current = (async () => {
-      const ctx = await engine.ensure()
+    const ctx = engine.armSync()
+    if (!ctx) {
       sync()
-      return Boolean(ctx && ctx.state === 'running')
-    })()
-    try {
-      return await activating.current
-    } finally {
-      activating.current = null
+      return false
     }
+    if (ctx.state !== 'running') {
+      try {
+        await ctx.resume()
+      } catch {
+        /* the next tap retries */
+      }
+    }
+    sync()
+    return ctx.state === 'running'
   }, [engine, sync])
 
-  useEffect(() => {
-    const interval = window.setInterval(sync, 1200)
-    return () => window.clearInterval(interval)
-  }, [sync])
+  useEffect(() => engine.onStateChange(sync), [engine, sync])
 
-  // Browsers require a gesture before audio can start. Every gesture is a
-  // chance to recover from a suspended context, so we do not use { once }.
+  // Browsers require a gesture before audio can start. Listen to every event
+  // iOS/Android may consider an activation so one of them always unlocks it.
   useEffect(() => {
     const unlock = () => {
-      if (engine.state === 'suspended' || engine.state === 'idle') {
-        void activate()
-      }
+      if (engine.state !== 'running') void activate()
     }
     const events: Array<keyof DocumentEventMap> = [
       'pointerdown',
       'touchstart',
+      'touchend',
+      'click',
       'keydown',
     ]
     events.forEach((event) => document.addEventListener(event, unlock, { passive: true }))

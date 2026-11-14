@@ -98,17 +98,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const play = useCallback(async () => {
     const audio = audioRef.current
     if (!audio || !audio.src) return
+    setError(null)
+    // iOS requires both the AudioContext unlock and audio.play() to happen
+    // inside the tap/click task. Do not await anything before play().
     try {
-      setError(null)
-      await activate()
-      await engine.attachMediaElement(audio)
-      await audio.play()
+      void activate()
+      engine.attachMediaElementSync(audio)
+      const playback = audio.play()
+      await playback
     } catch (err) {
       setIsPlaying(false)
       setIsLoading(false)
       const domError = err as DOMException
-      if (domError?.name !== 'AbortError' && domError?.name !== 'NotAllowedError') {
-        toast('Playback was blocked. Tap play again to start audio.', 'warn')
+      if (domError?.name !== 'AbortError') {
+        toast(
+          domError?.name === 'NotAllowedError'
+            ? 'Your browser blocked playback. Tap play once more.'
+            : 'Playback was blocked. Tap play again to start audio.',
+          'warn',
+        )
       }
     }
   }, [activate, engine, toast])

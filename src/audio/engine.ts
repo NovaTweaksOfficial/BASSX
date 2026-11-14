@@ -58,6 +58,7 @@ export class BassEngine {
   private headroom = true
   private userVolume = 0.85
   private disposed = false
+  private stateListener: ((state: AudioContextState) => void) | null = null
 
   readonly supported =
     typeof window !== 'undefined' &&
@@ -77,13 +78,35 @@ export class BassEngine {
     return this.ctx?.sampleRate ?? 44100
   }
 
-  /** Lazily builds the graph. Must be called from a user gesture on iOS. */
-  async ensure(): Promise<AudioContext | null> {
+  /**
+   * Creates (once) and resumes the context *synchronously*.
+   * iOS only unlocks audio when resume() is called inside the tap/click task,
+   * so the gesture handlers call this directly before awaiting anything.
+   */
+  armSync(): AudioContext | null {
     if (!this.supported || this.disposed) return null
     if (!this.ctx) this.build()
     const ctx = this.ctx
     if (!ctx) return null
-    if (ctx.state === 'suspended') {
+    // Safari can report "interrupted" (calls, Siri, route changes) as well as
+    // "suspended". Resume for anything that is not already running/closed.
+    if (ctx.state !== 'running' && ctx.state !== 'closed') {
+      try {
+        void ctx.resume().catch(() => {
+          /* the next gesture retries */
+        })
+      } catch {
+        /* the next gesture retries */
+      }
+    }
+    return ctx
+  }
+
+  /** Lazily builds the graph. Must be called from a user gesture on iOS. */
+  async ensure(): Promise<AudioContext | null> {
+    const ctx = this.armSync()
+    if (!ctx) return null
+    if (ctx.state !== 'running' && ctx.state !== 'closed') {
       try {
         await ctx.resume()
       } catch {
@@ -91,6 +114,14 @@ export class BassEngine {
       }
     }
     return ctx
+  }
+
+  /** Subscribe to AudioContext state changes (running / suspended / interrupted). */
+  onStateChange(listener: (state: AudioContextState) => void): () => void {
+    this.stateListener = listener
+    return () => {
+      if (this.stateListener === listener) this.stateListener = null
+    }
   }
 
   private build(): void {
@@ -101,6 +132,7 @@ export class BassEngine {
     if (!Ctor) return
     const ctx = new Ctor({ latencyHint: 'interactive' })
     this.ctx = ctx
+    ctx.addEventListener('statechange', () => this.stateListener?.(ctx.state))
 
     this.input = ctx.createGain()
     this.input.gain.value = 1
@@ -186,9 +218,12 @@ export class BassEngine {
     this.writeVolume(false)
   }
 
-  /** Creates (once) and connects a media element to the processing chain. */
-  async attachMediaElement(el: HTMLMediaElement): Promise<boolean> {
-    const ctx = await this.ensure()
+  /**
+   * Connects a media element synchronously, so callers can start playback in
+   * the same user-gesture task (required by iOS). Safe to call repeatedly.
+   */
+  attachMediaElementSync(el: HTMLMediaElement): boolean {
+    const ctx = this.armSync()
     if (!ctx || !this.input) return false
     if (this.mediaSource) return true
     try {
@@ -199,6 +234,13 @@ export class BassEngine {
       console.warn('[BASSX] Could not attach media element', error)
       return false
     }
+  }
+
+  /** Creates (once) and connects a media element to the processing chain. */
+  async attachMediaElement(el: HTMLMediaElement): Promise<boolean> {
+    const ctx = await this.ensure()
+    if (!ctx) return false
+    return this.attachMediaElementSync(el)
   }
 
   /** Optional line-in support (microphone, interface, future native bridge). */
