@@ -1,8 +1,12 @@
 import { useRef, useState, type CSSProperties, type DragEvent } from 'react'
+import { Link } from 'react-router-dom'
 import {
+  ArrowUpRight,
   Info,
+  Link2,
   ListMusic,
   Loader2,
+  Lock,
   Music2,
   Pause,
   Play,
@@ -19,33 +23,30 @@ import {
 } from 'lucide-react'
 import { useApp } from '../state/AppProvider'
 import { usePlayer } from '../player/PlayerProvider'
+import { useUnifiedPlayback } from '../music/useUnifiedPlayback'
 import { formatTime } from '../audio/types'
 import { SpectrumCanvas } from '../ui/SpectrumCanvas'
 import { PageHeader } from '../ui/PageHeader'
 
 export function PlayerPage() {
+  const local = usePlayer()
+  const unified = useUnifiedPlayback()
   const {
     tracks,
     currentTrack,
-    isPlaying,
-    isLoading,
-    error,
-    time,
-    duration,
     addFiles,
     removeTrack,
     playTrack,
-    togglePlay,
-    next,
-    previous,
-    seek,
-  } = usePlayer()
+    error,
+  } = local
   const { volume, setVolume, repeat, setRepeat, shuffle, toggleShuffle } = useApp()
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
-  const progress = duration > 0 ? (time / duration) * 100 : 0
-  const canSeek = duration > 0 && Number.isFinite(duration)
+  const providerActive = unified.providerActive
+  const progress =
+    unified.duration > 0 ? (unified.position / unified.duration) * 100 : 0
+  const canSeek = unified.canSeek
 
   const cycleRepeat = () => {
     setRepeat(repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off')
@@ -70,15 +71,20 @@ export function PlayerPage() {
             Your sound, <span className="text-gradient">live.</span>
           </>
         }
-        subtitle="Open music from your device. Every track runs through the BASSX engine before it hits your speakers."
+        subtitle="Play local files through the full BASSX engine, or control a connected service through its own official player."
         action={
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={() => inputRef.current?.click()}
-          >
-            <Plus size={16} /> Add music
-          </button>
+          <div className="header-actions">
+            <Link to="/music" className="ghost-btn ghost-btn--compact">
+              <Link2 size={15} /> Music hub
+            </Link>
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={() => inputRef.current?.click()}
+            >
+              <Plus size={16} /> Add music
+            </button>
+          </div>
         }
       />
 
@@ -95,65 +101,108 @@ export function PlayerPage() {
       />
 
       <div className="player-grid">
-        <section className="panel deck-panel reveal">
+        <section className={`panel deck-panel reveal ${providerActive ? 'is-provider' : ''}`}>
           <div className="deck-art-wrap">
-            <div className={`deck-art ${isPlaying ? 'is-playing' : ''}`}>
-              {currentTrack?.artworkUrl ? (
-                <img src={currentTrack.artworkUrl} alt="" />
+            <div className={`deck-art ${unified.isPlaying ? 'is-playing' : ''}`}>
+              {unified.artworkUrl ? (
+                <img src={unified.artworkUrl} alt="" />
               ) : (
                 <div className="deck-art__fallback">
                   <Music2 size={64} strokeWidth={1} />
-                  <span>{currentTrack?.title ?? 'BASSX'}</span>
+                  <span>{unified.title}</span>
                 </div>
               )}
               <span className="deck-art__sheen" aria-hidden="true" />
             </div>
-            <span className={`deck-state ${isPlaying ? 'is-live' : ''}`}>
-              <span /> {isPlaying ? 'Processing live' : 'Engine ready'}
+            <span
+              className={`deck-state ${unified.isPlaying ? 'is-live' : ''} ${
+                providerActive ? 'is-provider' : ''
+              }`}
+            >
+              <span />{' '}
+              {providerActive
+                ? `${unified.serviceName} · protected`
+                : unified.isPlaying
+                  ? 'Processing live'
+                  : 'Engine ready'}
             </span>
           </div>
 
           <div className="deck-meta">
-            <p className="eyebrow">{currentTrack?.album ?? 'No track loaded'}</p>
-            <h2>{currentTrack?.title ?? 'Choose a track'}</h2>
-            <p>{currentTrack?.artist ?? 'BASSX has a demo ready to play'}</p>
+            <p className="eyebrow">
+              {providerActive ? unified.serviceName : unified.album}
+            </p>
+            <h2>{unified.title}</h2>
+            <p>{unified.artist}</p>
+            {providerActive && (
+              <Link to="/music" className="text-link deck-source-link">
+                <Lock size={12} /> Connected stream · manage in Music
+                <ArrowUpRight size={13} />
+              </Link>
+            )}
           </div>
 
-          <SpectrumCanvas height={92} bars={48} showGrid={false} className="deck-spectrum" />
+          {providerActive ? (
+            <div className="deck-protected">
+              <span className="deck-protected__icon">
+                <Lock size={18} />
+              </span>
+              <div>
+                <strong>Protected {unified.serviceName} audio</strong>
+                <p>
+                  {unified.serviceName} streams are played by its official player.
+                  They cannot be routed into the Web Audio graph, so BASSX DSP and
+                  the live analyser are intentionally bypassed.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ghost-btn ghost-btn--compact"
+                onClick={unified.switchToLocal}
+              >
+                Play local instead
+              </button>
+            </div>
+          ) : (
+            <SpectrumCanvas height={92} bars={48} showGrid={false} className="deck-spectrum" />
+          )}
 
           <div className="seek">
             <input
               type="range"
               className="slider slider--seek"
               min={0}
-              max={canSeek ? duration : 1}
+              max={canSeek ? unified.duration : 1}
               step={0.1}
-              value={canSeek ? Math.min(time, duration) : 0}
+              value={canSeek ? Math.min(unified.position, unified.duration) : 0}
               disabled={!canSeek}
-              onChange={(event) => seek(Number(event.target.value))}
+              onChange={(event) => unified.seek(Number(event.target.value))}
               style={{ '--pct': `${progress}%` } as CSSProperties}
               aria-label="Seek"
             />
             <div className="seek__times">
-              <span>{formatTime(time)}</span>
-              <span>{formatTime(duration)}</span>
+              <span>{formatTime(unified.position)}</span>
+              <span>{formatTime(unified.duration)}</span>
             </div>
           </div>
 
           <div className="transport">
-            <button
-              type="button"
-              className={`transport__btn ${shuffle ? 'is-active' : ''}`}
-              onClick={toggleShuffle}
-              aria-label={shuffle ? 'Disable shuffle' : 'Enable shuffle'}
-              aria-pressed={shuffle}
-            >
-              <Shuffle size={18} />
-            </button>
+            {!providerActive && (
+              <button
+                type="button"
+                className={`transport__btn ${shuffle ? 'is-active' : ''}`}
+                onClick={toggleShuffle}
+                aria-label={shuffle ? 'Disable shuffle' : 'Enable shuffle'}
+                aria-pressed={shuffle}
+              >
+                <Shuffle size={18} />
+              </button>
+            )}
             <button
               type="button"
               className="transport__btn"
-              onClick={previous}
+              onClick={unified.previous}
+              disabled={!unified.canPrevious}
               aria-label="Previous track"
             >
               <SkipBack size={22} />
@@ -161,12 +210,12 @@ export function PlayerPage() {
             <button
               type="button"
               className="play-btn"
-              onClick={() => void togglePlay()}
-              aria-label={isPlaying ? 'Pause' : 'Play'}
+              onClick={unified.togglePlay}
+              aria-label={unified.isPlaying ? 'Pause' : 'Play'}
             >
-              {isLoading ? (
+              {unified.isLoading ? (
                 <Loader2 size={26} className="spin" />
-              ) : isPlaying ? (
+              ) : unified.isPlaying ? (
                 <Pause size={26} fill="currentColor" />
               ) : (
                 <Play size={26} fill="currentColor" />
@@ -175,44 +224,53 @@ export function PlayerPage() {
             <button
               type="button"
               className="transport__btn"
-              onClick={next}
+              onClick={unified.next}
+              disabled={!unified.canNext}
               aria-label="Next track"
             >
               <SkipForward size={22} />
             </button>
-            <button
-              type="button"
-              className={`transport__btn ${repeat !== 'off' ? 'is-active' : ''}`}
-              onClick={cycleRepeat}
-              aria-label={`Repeat ${repeat}`}
-            >
-              {repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
-              {repeat !== 'off' && <span className="transport__badge">{repeat === 'one' ? '1' : '∞'}</span>}
-            </button>
+            {!providerActive && (
+              <button
+                type="button"
+                className={`transport__btn ${repeat !== 'off' ? 'is-active' : ''}`}
+                onClick={cycleRepeat}
+                aria-label={`Repeat ${repeat}`}
+              >
+                {repeat === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+                {repeat !== 'off' && (
+                  <span className="transport__badge">
+                    {repeat === 'one' ? '1' : '∞'}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
-          <div className="volume-row">
-            <button
-              type="button"
-              className="icon-btn icon-btn--ghost"
-              onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
-              aria-label={volume > 0 ? 'Mute' : 'Unmute'}
-            >
-              {volume > 0 ? <Volume2 size={18} /> : <VolumeX size={18} />}
-            </button>
-            <input
-              type="range"
-              className="slider slider--thin"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(event) => setVolume(Number(event.target.value))}
-              style={{ '--pct': `${volume * 100}%` } as CSSProperties}
-              aria-label="Volume"
-            />
-            <span className="volume-row__value">{Math.round(volume * 100)}</span>
-          </div>
+          {!providerActive && (
+            <div className="volume-row">
+              <button
+                type="button"
+                className="icon-btn icon-btn--ghost"
+                onClick={() => setVolume(volume > 0 ? 0 : 0.8)}
+                aria-label={volume > 0 ? 'Mute' : 'Unmute'}
+              >
+                {volume > 0 ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </button>
+              <input
+                type="range"
+                className="slider slider--thin"
+                min={0}
+                max={1}
+                step={0.01}
+                value={volume}
+                onChange={(event) => setVolume(Number(event.target.value))}
+                style={{ '--pct': `${volume * 100}%` } as CSSProperties}
+                aria-label="Volume"
+              />
+              <span className="volume-row__value">{Math.round(volume * 100)}</span>
+            </div>
+          )}
 
           {error && (
             <div className="notice notice--warn">
@@ -234,10 +292,11 @@ export function PlayerPage() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">On this device</p>
-              <h2>Library</h2>
+              <h2>Local library</h2>
             </div>
             <span className="chip">
-              <ListMusic size={12} /> {tracks.length} track{tracks.length === 1 ? '' : 's'}
+              <ListMusic size={12} /> {tracks.length} track
+              {tracks.length === 1 ? '' : 's'}
             </span>
           </div>
 
@@ -255,7 +314,7 @@ export function PlayerPage() {
 
           <div className="track-list">
             {tracks.map((track, index) => {
-              const isCurrent = currentTrack?.id === track.id
+              const isCurrent = !providerActive && currentTrack?.id === track.id
               return (
                 <div key={track.id} className={`track-row ${isCurrent ? 'is-current' : ''}`}>
                   <button
@@ -277,7 +336,7 @@ export function PlayerPage() {
                         {track.isDemo && ' · demo'}
                       </span>
                     </span>
-                    {isCurrent && isPlaying ? (
+                    {isCurrent && unified.isPlaying ? (
                       <span className="playing-bars" aria-label="Playing">
                         <i />
                         <i />
@@ -306,8 +365,9 @@ export function PlayerPage() {
 
           <p className="library-note">
             <Info size={14} />
-            Files stay on your device — nothing is uploaded. Both the demo and
-            local tracks are processed in real time through the Web Audio graph.
+            Files stay on your device — nothing is uploaded. Local tracks run in
+            real time through the Web Audio graph, so the EQ, bass engine and
+            visualizer all apply.
           </p>
         </section>
       </div>

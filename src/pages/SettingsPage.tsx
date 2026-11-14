@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Cpu,
   Download,
   Info,
+  Link2,
   Share,
   ShieldCheck,
   Smartphone,
@@ -19,6 +21,9 @@ import { PageHeader } from '../ui/PageHeader'
 import { RangeControl, Segmented, Toggle } from '../ui/Controls'
 import { SpectrumCanvas } from '../ui/SpectrumCanvas'
 import { useToast } from '../ui/ToastProvider'
+import { useMusic } from '../music/MusicProvider'
+import { ServiceLogo } from '../music/ServiceLogo'
+import { getService } from '../music/providers/registry'
 import type { ThemeAccent, VisualizerStyle } from '../audio/types'
 
 const ACCENTS: Array<{ value: ThemeAccent; label: string }> = [
@@ -50,6 +55,7 @@ export function SettingsPage() {
   } = useApp()
   const { engine, supported, activate } = useEngine()
   const { canInstall, installed, install } = useInstallPrompt()
+  const music = useMusic()
   const { toast } = useToast()
   const [resetOpen, setResetOpen] = useState(false)
   const [sweeping, setSweeping] = useState(false)
@@ -261,6 +267,64 @@ export function SettingsPage() {
         <section className="panel settings-card reveal reveal--delay-1">
           <div className="panel-head">
             <div>
+              <p className="eyebrow">Connected music</p>
+              <h2>Services</h2>
+            </div>
+            <Link2 size={17} className="panel-head__icon" />
+          </div>
+          <p className="settings-copy">
+            BASSX links only to services with official developer APIs. Connected
+            playback uses the provider’s own player and stays outside the BASSX
+            DSP graph.
+          </p>
+          <div className="settings-services">
+            {(['spotify', 'appleMusic'] as const).map((id) => {
+              const service = getService(id)
+              const connection = music.connections[id]
+              const connected = connection.status === 'connected'
+              return (
+                <div className="settings-service" key={id}>
+                  <ServiceLogo service={id} size={30} />
+                  <div className="settings-service__text">
+                    <strong>{service.name}</strong>
+                    <span>
+                      {connected
+                        ? connection.accountName ?? 'Connected'
+                        : connection.status === 'reauth'
+                          ? 'Reconnect needed'
+                          : 'Not connected'}
+                    </span>
+                  </div>
+                  <span
+                    className={`status-dot ${
+                      connected
+                        ? 'is-live'
+                        : connection.status === 'reauth'
+                          ? 'is-warn'
+                          : 'is-idle'
+                    }`}
+                  />
+                  <Link to="/music" className="ghost-btn ghost-btn--compact">
+                    {connected ? 'Manage' : 'Connect'}
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
+          <p className="settings-note">
+            Spotify uses OAuth 2.0 + PKCE with your own public Client ID. Tokens
+            stay in session storage unless you opt in to remembering them. Apple
+            Music uses a server-signed MusicKit token; BASSX never stores an Apple
+            private key.
+          </p>
+          <Link to="/music" className="ghost-btn ghost-btn--wide">
+            <Link2 size={15} /> Open connected music
+          </Link>
+        </section>
+
+        <section className="panel settings-card reveal reveal--delay-1">
+          <div className="panel-head">
+            <div>
               <p className="eyebrow">Install &amp; data</p>
               <h2>App</h2>
             </div>
@@ -356,11 +420,12 @@ export function SettingsPage() {
               <strong>What a browser can and cannot process</strong>
               <p>
                 BASSX can process audio you open in the app (local files) and the
-                built-in demo. A website cannot capture system-wide audio from
-                Spotify, Apple Music, YouTube Music or other apps — no browser
-                exposes that. We do not fake it: those sources simply cannot be
-                routed through BASSX on the web. A future native iOS/Android build
-                can support additional platform-permitted routing.
+                built-in demo. Connected services play through their own official
+                players: Spotify’s Web Playback SDK and Apple’s MusicKit both use
+                protected media pipelines that a website cannot capture. We do not
+                fake it — bass, EQ and the analyser are bypassed for those
+                streams, and the UI says so. A future native build can support
+                additional platform-permitted routing.
               </p>
             </div>
           </div>

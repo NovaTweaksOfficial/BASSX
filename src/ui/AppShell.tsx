@@ -1,13 +1,15 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
-import { usePlayer } from '../player/PlayerProvider'
+import { useUnifiedPlayback } from '../music/useUnifiedPlayback'
 import { TopBar } from './TopBar'
 import { BottomNav } from './BottomNav'
 import { MiniPlayer } from './MiniPlayer'
 
 export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation()
-  const { togglePlay, seek, time } = usePlayer()
+  const playback = useUnifiedPlayback()
+  const playbackRef = useRef(playback)
+  playbackRef.current = playback
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
@@ -26,20 +28,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       ) {
         return
       }
+      const current = playbackRef.current
       if (event.code === 'Space') {
         event.preventDefault()
-        void togglePlay()
+        current.togglePlay()
       } else if (event.code === 'ArrowRight') {
         event.preventDefault()
-        seek(time + 5)
+        current.seek(current.position + 5)
       } else if (event.code === 'ArrowLeft') {
         event.preventDefault()
-        seek(time - 5)
+        current.seek(current.position - 5)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [togglePlay, seek, time])
+  }, [])
 
   return (
     <div className="app">

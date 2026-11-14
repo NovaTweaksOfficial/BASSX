@@ -1,11 +1,17 @@
 import { NavLink } from 'react-router-dom'
-import { Disc3, House, Settings2, SlidersHorizontal, Sparkles } from 'lucide-react'
+import {
+  Disc3,
+  House,
+  Music4,
+  Settings2,
+  SlidersHorizontal,
+} from 'lucide-react'
 
 const items = [
   { to: '/', label: 'Home', icon: House, end: true },
-  { to: '/equalizer', label: 'Equalizer', icon: SlidersHorizontal },
+  { to: '/music', label: 'Music', icon: Music4 },
   { to: '/player', label: 'Player', icon: Disc3 },
-  { to: '/presets', label: 'Presets', icon: Sparkles },
+  { to: '/equalizer', label: 'EQ', icon: SlidersHorizontal },
   { to: '/settings', label: 'Settings', icon: Settings2 },
 ]
 

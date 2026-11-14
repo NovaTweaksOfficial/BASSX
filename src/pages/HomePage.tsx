@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   AudioLines,
   Disc3,
+  Link2,
   Play,
   ShieldCheck,
   SlidersHorizontal,
@@ -13,6 +14,8 @@ import {
 import { useEngine } from '../audio/EngineProvider'
 import { useApp } from '../state/AppProvider'
 import { usePlayer } from '../player/PlayerProvider'
+import { useMusic } from '../music/MusicProvider'
+import { useUnifiedPlayback } from '../music/useUnifiedPlayback'
 import { Knob } from '../ui/Knob'
 import { SpectrumCanvas } from '../ui/SpectrumCanvas'
 import { RangeControl } from '../ui/Controls'
@@ -30,7 +33,16 @@ export function HomePage() {
     presets,
     settings,
   } = useApp()
-  const { currentTrack, isPlaying, togglePlay } = usePlayer()
+  const { currentTrack } = usePlayer()
+  const music = useMusic()
+  const unified = useUnifiedPlayback()
+  const { isPlaying, togglePlay, providerActive, serviceName, title, artist } = unified
+  const connectedNames = [
+    music.connections.spotify.status === 'connected' ? 'Spotify' : null,
+    music.connections.appleMusic.status === 'connected' ? 'Apple Music' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   const intensity = Math.max(0, bass.intensity) / 100
   const gains = {
@@ -94,7 +106,11 @@ export function HomePage() {
             </div>
             <span className={`live-chip ${isPlaying ? 'is-live' : ''}`}>
               <span className="live-chip__dot" />
-              {isPlaying ? 'Audio live' : 'Waiting for audio'}
+              {providerActive
+                ? `${serviceName} stream`
+                : isPlaying
+                  ? 'Audio live'
+                  : 'Waiting for audio'}
             </span>
           </div>
 
@@ -117,12 +133,23 @@ export function HomePage() {
               {isPlaying ? <Pause size={16} /> : <Play size={16} />}
               {isPlaying
                 ? 'Pause'
-                : currentTrack?.isDemo
+                : !providerActive && currentTrack?.isDemo
                   ? 'Play demo'
-                  : 'Resume audio'}
+                  : providerActive
+                    ? 'Resume stream'
+                    : 'Resume audio'}
             </button>
             <p>
-              {currentTrack ? (
+              {providerActive ? (
+                <>
+                  <span className="eq-indicator" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  {title} — {artist} · DSP bypassed
+                </>
+              ) : currentTrack ? (
                 <>
                   <span className="eq-indicator" aria-hidden="true">
                     <i />
@@ -256,10 +283,8 @@ export function HomePage() {
                 <Disc3 size={19} />
               </span>
               <span className="quick-card__eyebrow">Now on deck</span>
-              <strong>{currentTrack?.title ?? 'Player'}</strong>
-              <span className="quick-card__meta">
-                {currentTrack?.artist ?? 'Open your library'}
-              </span>
+              <strong>{title}</strong>
+              <span className="quick-card__meta">{artist}</span>
               <span className="quick-card__glyph">
                 <AudioLines size={44} strokeWidth={1} />
               </span>
@@ -278,14 +303,34 @@ export function HomePage() {
                 <Activity size={44} strokeWidth={1} />
               </span>
             </Link>
+
+            <Link to="/music" className="quick-card quick-card--music">
+              <span className="quick-card__icon">
+                <Link2 size={19} />
+              </span>
+              <span className="quick-card__eyebrow">Connected music</span>
+              <strong>
+                {connectedNames
+                  ? `${connectedNames.split(' · ').length} service${
+                      connectedNames.split(' · ').length > 1 ? 's' : ''
+                    } linked`
+                  : 'Link a service'}
+              </strong>
+              <span className="quick-card__meta">
+                {connectedNames || 'Spotify · Apple Music'}
+              </span>
+              <span className="quick-card__glyph">
+                <AudioLines size={44} strokeWidth={1} />
+              </span>
+            </Link>
           </div>
         </section>
       </div>
 
       <p className="page-note">
-        BASSX processes audio opened inside this app. System-wide apps such as
-        Spotify or Apple Music cannot be routed through a browser —{' '}
-        <Link to="/settings">read the compatibility note</Link>.
+        BASSX DSP processes local audio opened in this app. Connected services
+        play through their own official players and stay outside the DSP graph —{' '}
+        <Link to="/music">manage connected music</Link>.
       </p>
     </div>
   )
