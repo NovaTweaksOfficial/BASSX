@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="85%">
+      <stop offset="0" stop-color="#2a1050"/>
+      <stop offset="0.55" stop-color="#0d0718"/>
+      <stop offset="1" stop-color="#040406"/>
+    </radialGradient>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9d5ff"/>
+      <stop offset="0.45" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="38"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="250" r="150" fill="none" stroke="#7c3aed" stroke-opacity="0.35" stroke-width="1.5"/>
+  <circle cx="256" cy="250" r="196" fill="none" stroke="#22d3ee" stroke-opacity="0.14" stroke-width="1"/>
+  <circle cx="256" cy="250" r="110" fill="#7c3aed" opacity="0.18" filter="url(#soft)"/>
+  <g filter="url(#glow)" fill="url(#wave)">
+    <rect x="168" y="238" width="16" height="64" rx="8"/>
+    <rect x="196" y="212" width="16" height="116" rx="8"/>
+    <rect x="224" y="178" width="16" height="184" rx="8" opacity="0.9"/>
+    <rect x="252" y="146" width="16" height="248" rx="8"/>
+    <rect x="280" y="188" width="16" height="164" rx="8"/>
+    <rect x="308" y="218" width="16" height="104" rx="8" opacity="0.9"/>
+    <rect x="336" y="246" width="16" height="48" rx="8" opacity="0.8"/>
+  </g>
+  <g fill="#ffffff" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="38" y="60" font-size="15" letter-spacing="7" opacity="0.55">BASSX ORIGINALS</text>
+    <text x="38" y="446" font-size="42" font-weight="700" letter-spacing="2">SUB ZERO</text>
+    <text x="38" y="474" font-size="13" letter-spacing="5" opacity="0.55">DEMO TRANSMISSION 001</text>
+    <text x="474" y="60" font-size="12" letter-spacing="3" opacity="0.4" text-anchor="end">120 BPM</text>
+  </g>
+  <rect x="38" y="488" width="436" height="1" fill="#ffffff" opacity="0.12"/>
+</svg>
